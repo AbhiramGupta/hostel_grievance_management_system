@@ -1,0 +1,55 @@
+body {
+  margin: 0;
+  font-family: Arial, sans-serif;
+  background: linear-gradient(to right, #1a1a40, #000);
+  color: white;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+}
+
+.container {
+  width: 90%;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid white;
+  padding: 20px;
+  border-radius: 10px;
+  backdrop-filter: blur(10px);
+}
+
+h1 {
+  text-align: center;
+  margin-bottom: 20px;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 20px;
+}
+
+table th, table td {
+  border: 1px solid white;
+  padding: 10px;
+  text-align: center;
+}
+
+table th {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.btn input {
+  width: 100%;
+  padding: 10px;
+  border: none;
+  background: #ff4757;
+  color: white;
+  font-size: 16px;
+  border-radius: 5px;
+  cursor: pointer;
+}
+
+.btn input:hover {
+  background: #e84118;
+}

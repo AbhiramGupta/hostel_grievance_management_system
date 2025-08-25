@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Admin Dashboard</title>
+  <link rel="stylesheet" href="/styles/admin.css">
+</head>
+<body>
+  <div class="container">
+    <h1>Admin Dashboard</h1>
+
+    <% if (success) { %>
+      <p style="color:green;"><%= success %></p>
+    <% } %>
+
+    <% if (error) { %>
+      <p style="color:red;"><%= error %></p>
+    <% } %>
+
+    <form method="POST" action="/admin/delete">
+      <table>
+        <thead>
+          <tr>
+            <th>Select</th>
+            <th>ID</th>
+            <th>Name</th>
+            <th>Application ID</th>
+            <th>Mobile</th>
+            <th>Hostel Block</th>
+            <th>Room</th>
+            <th>Problem Type</th>
+            <th>Description</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% problems.forEach(p => { %>
+            <tr>
+              <td><input type="checkbox" name="deleteIds" value="<%= p.id %>"></td>
+              <td><%= p.id %></td>
+              <td><%= p.name %></td>
+              <td><%= p.application_id %></td>
+              <td><%= p.mobile_number %></td>
+              <td><%= p.hostel_block %></td>
+              <td><%= p.room_number %></td>
+              <td><%= p.type_of_problem %></td>
+              <td><%= p.problem_description %></td>
+            </tr>
+          <% }) %>
+        </tbody>
+      </table>
+
+      <div class="btn">
+        <input type="submit" value="Delete Selected">
+      </div>
+    </form>
+  </div>
+</body>
+</html>

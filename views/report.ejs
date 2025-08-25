@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Report Hostel Problems</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/styles/report.css">
+</head>
+
+<body>
+    <div class="container">
+        <header>
+            <img class="logo" src="https://woxsen.edu.in/uploads/L20230526052817.webp" alt="Woxsen Logo" />
+            <h1>Report Hostel Problems</h1>
+        </header>
+
+        <form class="report-form" action="/report" method="post">
+            <div class="form-group">
+                <label for="Name">Name</label>
+                <input type="text" id="Name" name="name" placeholder="Enter your name" pattern="[A-Za-z .]+" required>
+            </div>
+
+            <div class="form-group">
+                <label for="Application_ID">Application ID</label>
+                <input type="text" id="Application_ID" name="applicationId" placeholder="Enter your ID" maxlength="5"
+                    minlength="5" pattern="[0-9]+" required>
+            </div>
+
+            <div class="form-group">
+                <label for="Mobile_number">Mobile Number</label>
+                <input type="text" id="Mobile_number" name="mobileNumber" placeholder="Enter your Mobile number"
+                    maxlength="10" minlength="10" pattern="[0-9]+" required>
+            </div>
+
+            <div class="form-group">
+                <label>Hostel Block</label>
+                <div class="radio-group">
+                    <label><input type="radio" name="hostel_block" value="T1"> Tower 1</label>
+                    <label><input type="radio" name="hostel_block" value="T2"> Tower 2</label>
+                    <label><input type="radio" name="hostel_block" value="T3"> Tower 3</label>
+                    <label><input type="radio" name="hostel_block" value="T4"> Tower 4</label>
+                    <label><input type="radio" name="hostel_block" value="A"> A-Block</label>
+                    <label><input type="radio" name="hostel_block" value="B"> B-Block</label>
+                    <label><input type="radio" name="hostel_block" value="C"> C-Block</label>
+                    <label><input type="radio" name="hostel_block" value="D"> D-Block</label>
+                    <label><input type="radio" name="hostel_block" value="E"> E-Block</label>
+                    <label><input type="radio" name="hostel_block" value="F"> F-Block</label>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="Room_number">Room Number</label>
+                <input type="text" id="Room_number" name="Room_number" placeholder="Enter your Room number" minlength="1"
+                    maxlength="4" required>
+            </div>
+
+            <div class="form-group">
+                <label for="Type_of_problem">Type of Problem</label>
+                <select id="Type_of_problem" name="Type_of_problem" required>
+                    <option value="">--- Select Problem Type ---</option>
+                    <option value="cleaning">Cleaning</option>
+                    <option value="plumber">Plumber</option>
+                    <option value="electrical">Electrical</option>
+                    <option value="carpenter">Carpenter</option>
+                    <option value="others">Others</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label for="Report_your_problem">Report your problem</label>
+                <textarea id="Report_your_problem" name="Report_your_problem" placeholder="Describe your problem"
+                    required></textarea>
+            </div>
+
+            <div class="form-group">
+                <button type="submit">Submit</button>
+            </div>
+            <div class="form-group">
+                <a href="/logout" style="color: white;">Logout</a>
+            </div>
+            <h4 style="color: white; font-weight: bold;font-size: larger; text-align: center;"><%= complaint %></h4>
+        </form>
+    </div>
+</body>
+
+</html>

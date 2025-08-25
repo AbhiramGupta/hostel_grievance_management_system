@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Login</title>
+  <link rel="stylesheet" href="/styles/login.css">
+</head>
+<body>
+  <div class="container">
+    <h1>Login</h1>
+      <h4 style="color:red; font-size: larger; font-weight: bold;"><%= error %></h4>
+   
+    <form method="POST" action="/login">
+      <div class="input-box">
+        <input type="email" name="email" placeholder="Email" required>
+      </div>
+
+      <div class="input-box">
+        <input type="password" name="password" placeholder="Password" required>
+      </div>
+
+      <div class="btn">
+        <input type="submit" value="Login">
+      </div>
+    </form>
+
+    <div class="registration">
+      <p>Don’t have an account? <a href="/register">Register here</a></p>
+    </div>
+  </div>
+</body>
+</html>

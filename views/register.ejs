@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Registration Page</title>
+    <link rel="stylesheet" href="styles/register.css">
+
+
+</head>
+
+<body>
+
+
+    <div class="container">
+        <form method="POST" action="/register">
+            <h1>Register</h1>
+              <h4 style="color: red;font-size: larger;font-weight: bold;">
+                <%= message %>
+            </h4>
+            <div class="user">
+
+                <label>Mail address</label>
+                <br>
+
+                <input id="WoxsenMail" type=" text" placeholder="Enter Mail address" name="email"
+                    pattern="[a-zA-Z0-9._%+-]+@gmail\.com$" required>
+            </div>
+
+            <div class="user">
+                <label>Mobile Number</label>
+                <br>
+                <input id="MobileNumber" type="number" placeholder="Enter Mobile Number" name="mobileNumber"
+                    pattern="^\d{10}$" maxlength="10" required>
+            </div>
+            <div class="user">
+                <label>Set Password</label>
+                <br>
+                <input id="Password" type="password" placeholder="Enter Password" name="password" required>
+            </div>
+            <div class="user">
+                <label>Re-Enter Password</label>
+                <br>
+                <input id="RePassword" type=" text" placeholder="Re-Enter your password" name="rePassword" required>
+            </div>
+            <div class="btn">
+                <input id="submit" type="submit" value="Signup">
+            </div>
+          
+        </form>
+        <div class="login-link">
+  <p>Already have an account? <a href="/login">Login here</a></p>
+</div>
+
+    </div>
+    <script type="module"></script>
+
+
+</body>
+
+</html>
