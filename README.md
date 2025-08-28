@@ -1,5 +1,5 @@
 
-# Hostel Grevience Management System
+# Hostel Grievance Management System
 
 A web-based platform for students to register and report hostel-related problems, with authentication and issue tracking.
 
@@ -26,13 +26,13 @@ In many hostels, students still rely on manual reporting (paper or verbal) for m
 Clone the project
 
 ```bash
-  git clone https://github.com/AbhiramGupta/hostel_grevience_managemnt_system.git
+  git clone https://github.com/AbhiramGupta/hostel_grievance_management_system.git
 ```
 
 Go to the project directory
 
 ```bash
-  cd Hostel Grevience Management System
+  cd HOSTEL GRIEVANCE MANAGEMENT SYSTEM
 ```
 
 Setup Environment Variables
