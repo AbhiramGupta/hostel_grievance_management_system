@@ -26,7 +26,7 @@ In many hostels, students still rely on manual reporting (paper or verbal) for m
 Clone the project
 
 ```bash
-  git clone https://github.com/AbhiramGupta/Hostel_grevience_management_system.git
+  git clone https://github.com/AbhiramGupta/hostel_grevience_managemnt_system.git
 ```
 
 Go to the project directory
