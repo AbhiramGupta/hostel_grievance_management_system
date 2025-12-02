@@ -118,12 +118,21 @@ const reportLimiter = rateLimit({
 })
 
 const transporter = nodemailer.createTransport({
-    service:"gmail",
-    auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.APP_PASSWORD
-    },
-})
+  host: "smtp.gmail.com",
+  port: 587,
+  secure: false, 
+  auth: {
+    user: process.env.EMAIL_USER,
+    pass: process.env.APP_PASSWORD
+  },
+  tls: {
+    rejectUnauthorized: false
+  },
+  connectionTimeout: 30_000,
+  greetingTimeout: 30_000,
+  socketTimeout: 30_000,
+});
+
 
 app.get('/', (req,res) => {
    res.render("login.ejs", {
