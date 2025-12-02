@@ -1,64 +1,68 @@
+
+import dotenv from "dotenv";
+dotenv.config();
+
 import express from 'express';
 import bodyParser from 'body-parser';
 import PG from 'pg';
-import bcrypt from "bcrypt"
+import bcrypt from "bcrypt";
 import path from 'path';
 import { fileURLToPath } from 'url';
-import dotenv from "dotenv"
 import session from 'express-session';
-import ejs from "ejs"
-import nodemailer from "nodemailer"
-import { v4 as uuidv4}  from "uuid"
+import ejs from "ejs";
+import { v4 as uuidv4 } from "uuid";
 import rateLimit from "express-rate-limit";
 import sgMail from '@sendgrid/mail';
 
-sgMail.setApiKey(process.env.SENDGRID_API_KEY);
-
-dotenv.config();
+if (process.env.SENDGRID_API_KEY) {
+  sgMail.setApiKey(process.env.SENDGRID_API_KEY);
+  console.log('SENDGRID_API_KEY present:', process.env.SENDGRID_API_KEY.startsWith('SG.'));
+} else {
+  console.warn('SENDGRID_API_KEY not set! Email sending will fail until you set it.');
+}
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+
 if (process.env.NODE_ENV === 'production') {
   app.set('trust proxy', 1);
 }
 
-
 app.use(session({
-    secret: process.env.SECRET,
-    resave: false,
-    saveUninitialized: false,
-    cookie: {
-        httpOnly:true,
-        secure:process.env.NODE_ENV === "production",
-        sameSite:"strict",
-        maxAge: 24 * 60 * 60 * 1000
-    }
-}))
+  secret: process.env.SECRET || 'change_this_secret',
+  resave: false,
+  saveUninitialized: false,
+  cookie: {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "strict",
+    maxAge: 24 * 60 * 60 * 1000
+  }
+}));
 
 function requireLogin(req, res, next) {
-    if (!req.session.user) {
-        return res.redirect('/login')
-    }
-    next();
+  if (!req.session.user) {
+    return res.redirect('/login');
+  }
+  next();
 }
 
 function requireAdmin(req, res, next) {
-    if (!req.session.user || !req.session.user.is_admin) {
-        return res.redirect('/login')
-    }
-    next()
+  if (!req.session.user || !req.session.user.is_admin) {
+    return res.redirect('/login');
+  }
+  next();
 }
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-app.set('views', path.join(__dirname, 'views')); 
+app.set('views', path.join(__dirname, 'views'));
 app.set('view engine', 'ejs');
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, 'public')));
 app.use(express.json());
 
-
-const saltRounds = 10
+const saltRounds = 10;
 
 const db = new PG.Client({
   connectionString: process.env.DATABASE_URL,
@@ -73,117 +77,103 @@ db.connect()
 
 
 const globalLimiter = rateLimit({
-    windowMs: 15*60*1000,
-    max:100,
-    standardHeaders:true,
-    legacyHeaders:false,
-})
+  windowMs: 15 * 60 * 1000, 
+  max: 100,
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+app.use(globalLimiter);
 
-app.use(globalLimiter)
 
-const LoginLimiter = rateLimit({
-    windowMs:15*60*1000,
-    max:100,
-    handler:(req,res) => {
-        return res.status(429).render("login.ejs",{
-            error:"Too many failed Login attempts, Please try again Later"
-        })
-    },
-    standardHeaders:true,
-    legacyHeaders:false
-})
+const loginLimiter = rateLimit({
+  windowMs: 10 * 60 * 1000, 
+  max: 5,
+  handler: (req, res) => {
+    return res.status(429).render("login.ejs", {
+      error: "Too many failed login attempts. Please try again after 10 minutes."
+    });
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
 
 const registerLimiter = rateLimit({
-     windowMs:15*60*1000,
-    max:100,
-    handler:(req,res) => {
-        return res.status(429).render("register.ejs",{
-            error:"Too many account creation attempts, Please try again Later"
-        })
-    },
-    standardHeaders:true,
-    legacyHeaders:false
-})
+  windowMs: 60 * 60 * 1000,
+  max: 3,
+  handler: (req, res) => {
+    return res.status(429).render("register.ejs", {
+      message: "Too many registration attempts. Try again after 1 hour."
+    });
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
 
 const reportLimiter = rateLimit({
-     windowMs:15*60*1000,
-    max:100,
-    handler:(req,res) => {
-        return res.status(429).render("report.ejs",{
-            error:"Sending too many reports, Please try again later"
-        })
-    },
-    standardHeaders:true,
-    legacyHeaders:false
-})
+  windowMs: 60 * 60 * 1000,
+  max: 20,
+  handler: (req, res) => {
+    return res.status(429).render("report.ejs", {
+      complaint: null,
+      error: "You are sending too many reports. Try again later."
+    });
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
 
-app.get('/', (req,res) => {
-   res.render("login.ejs", {
-        error: null
-    }) 
-})
-
+app.get('/', (req, res) => {
+  res.render("login.ejs", { error: null });
+});
 
 app.get('/login', (req, res) => {
-    res.render("login.ejs", {
-        error: null
-    })
+  res.render("login.ejs", { error: null });
 });
 
 app.get('/logout', (req, res) => {
-    req.session.destroy(err => {
-        if (err) {
-            console.log(err);
-            return res.send("Error logging out");
-        }
-        res.clearCookie('connect.sid');
-        res.redirect('/login');
-    });
+  req.session.destroy(err => {
+    if (err) {
+      console.log(err);
+      return res.send("Error logging out");
+    }
+    res.clearCookie('connect.sid');
+    res.redirect('/login');
+  });
 });
 
-
 app.get("/register", (req, res) => {
-    res.render("register.ejs", {
-        message: null
-    })
-})
+  res.render("register.ejs", { message: null });
+});
 
 app.get('/report', requireLogin, (req, res) => {
-    res.render("report.ejs", {
-        complaint: null
-    })
+  res.render("report.ejs", { complaint: null });
 });
 
 app.get('/admin', requireAdmin, async (req, res) => {
-    try {
-        const result = await db.query("SELECT * FROM problems ORDER BY id ASC");
-        res.render("admin.ejs", { problems: result.rows, success: null, error: null });
-    } catch (err) {
-        console.log(err);
-        res.render("admin.ejs", { problems: [], success: null, error: "Error fetching problems" });
-    }
+  try {
+    const result = await db.query("SELECT * FROM problems ORDER BY id ASC");
+    res.render("admin.ejs", { problems: result.rows, success: null, error: null });
+  } catch (err) {
+    console.log(err);
+    res.render("admin.ejs", { problems: [], success: null, error: "Error fetching problems" });
+  }
 });
-
 
 app.post('/admin/delete', requireAdmin, async (req, res) => {
-    const ids = req.body.deleteIds; 
-
-    if (!ids) {
-        return res.render("admin.ejs", { problems: [], success: null, error: "No problems selected" });
-    }
-
-    try {
-        await db.query("DELETE FROM problems WHERE id = ANY($1)", [Array.isArray(ids) ? ids : [ids]]);
-        const result = await db.query("SELECT * FROM problems ORDER BY id ASC");
-        res.render("admin.ejs", { problems: result.rows, success: "Deleted successfully!", error: null });
-    } catch (err) {
-        console.log(err);
-        const result = await db.query("SELECT * FROM problems ORDER BY id ASC");
-        res.render("admin.ejs", { problems: result.rows, success: null, error: "Error deleting problems" });
-    }
+  const ids = req.body.deleteIds;
+  if (!ids) {
+    return res.render("admin.ejs", { problems: [], success: null, error: "No problems selected" });
+  }
+  try {
+    await db.query("DELETE FROM problems WHERE id = ANY($1)", [Array.isArray(ids) ? ids : [ids]]);
+    const result = await db.query("SELECT * FROM problems ORDER BY id ASC");
+    res.render("admin.ejs", { problems: result.rows, success: "Deleted successfully!", error: null });
+  } catch (err) {
+    console.log(err);
+    const result = await db.query("SELECT * FROM problems ORDER BY id ASC");
+    res.render("admin.ejs", { problems: result.rows, success: null, error: "Error deleting problems" });
+  }
 });
-
-
 
 app.post("/register", registerLimiter, async (req, res) => {
   try {
@@ -227,9 +217,13 @@ app.post("/register", registerLimiter, async (req, res) => {
     };
 
     try {
+      if (!process.env.SENDGRID_API_KEY) {
+        console.error('SENDGRID_API_KEY not set; cannot send email.');
+        return res.render("register.ejs", { message: "Registered but failed to send verification email. Contact admin." });
+      }
       const [response] = await sgMail.send(msg);
-      console.log('SendGrid send status:', response.statusCode);
-      return res.render("register.ejs", { message: "Verification email sent. Please check your inbox." });
+      console.log('SendGrid send status:', response && response.statusCode);
+      return res.render("register.ejs", { message: "Verification email sent. Please check your inbox also spam folder." });
     } catch (sgErr) {
       console.error('SendGrid error:', sgErr);
       return res.render("register.ejs", { message: "Registered but failed to send verification email. Contact admin." });
@@ -241,88 +235,76 @@ app.post("/register", registerLimiter, async (req, res) => {
   }
 });
 
-
-app.get('/verify/:token', async (req,res) => {
-    const { token } = req.params
-
-    try {
-        const result = await db.query("SELECT * FROM users WHERE token = $1", [token]);
-
-        if(result.rows.length === 0){
-            return res.send("Invalid or expired link")
-        }
-
-        await db.query("UPDATE users SET verified = true, token = NULL WHERE token = $1", [token])
-        res.send("Email verified successfully Please Login")
-    } catch (error) {
-        console.log(error)
+app.get('/verify/:token', async (req, res) => {
+  const { token } = req.params;
+  try {
+    const result = await db.query("SELECT * FROM users WHERE token = $1", [token]);
+    if (result.rows.length === 0) {
+      return res.send("Invalid or expired link");
     }
-})
+    await db.query("UPDATE users SET verified = true, token = NULL WHERE token = $1", [token]);
+    res.send("Email verified successfully. Please Login");
+  } catch (error) {
+    console.log(error);
+    res.status(500).send("Server error");
+  }
+});
 
+app.post("/login", loginLimiter, async (req, res) => {
+  try {
+    const loginEmail = req.body.email;
+    const loginPassword = req.body.password;
 
-app.post("/login",LoginLimiter, async (req, res) => {
-    try {
-        const loginEmail = req.body.email
-        const loginPassword = req.body.password
+    const result = await db.query("SELECT * FROM users WHERE email = $1", [loginEmail]);
 
-        const result = await db.query("SELECT * FROM users WHERE email = $1", [loginEmail]);
+    if (result.rows.length === 0) {
+      return res.render("login.ejs", { error: "No email exist with Entered Email" });
+    }
 
-        if (result.rows.length === 0) {
-            return res.render("login.ejs", {
-                error: "No email exist with Entered Email"
-            });
+    if (!result.rows[0].verified) {
+      return res.render("login.ejs", { error: 'Please verify your email first' });
+    }
+
+    const storedPassword = result.rows[0].password;
+
+    bcrypt.compare(loginPassword, storedPassword, async function (err, match) {
+      try {
+        if (err) {
+          return res.send("Something went wrong");
         }
 
-        if(!result.rows[0].verified){
-            return res.render("login.ejs", {
-                error: 'Please verify your email first'
-            })
-        }
+        if (match) {
+          req.session.user = {
+            id: result.rows[0].id,
+            email: result.rows[0].email,
+            is_admin: result.rows[0].is_admin
+          };
 
-        const storedPassword = result.rows[0].password;
-
-        bcrypt.compare(loginPassword, storedPassword, async function (err, match) {
-            try {
-                if (err) {
-                    return res.send("Something went wrong");
-                }
-
-                
-
-                if (match) {
-                    req.session.user = {
-                        id: result.rows[0].id,
-                        email: result.rows[0].email,
-                        is_admin: result.rows[0].is_admin
-                    };
-
-                    req.session.save(err => {
-                        if (err) {
-                            console.log(err);
-                            return res.send("Session error");
-                        } else {
-                            if (req.session.user.is_admin) {
-                                res.redirect('/admin');
-                            } else {
-                                res.redirect('/report');
-                            }
-                        }
-                    });
-                } else {
-                    res.render("login.ejs", {
-                        error: "Invalid Credentials"
-                    });
-                }
-            } catch (innerError) {
-                console.error("Error inside bcrypt.compare:", innerError);
-                res.status(500).send("Internal Server Error");
+          req.session.save(err => {
+            if (err) {
+              console.log(err);
+              return res.send("Session error");
+            } else {
+              if (req.session.user.is_admin) {
+                res.redirect('/admin');
+              } else {
+                res.redirect('/report');
+              }
             }
-        });
-
-    } catch (error) {
-        console.error("Login route error:", error);
+          });
+        } else {
+          res.render("login.ejs", { error: "Invalid Credentials" });
+        }
+      } catch (innerError) {
+        console.error("Error inside bcrypt.compare:", innerError);
         res.status(500).send("Internal Server Error");
-    }
+      }
+    });
+
+  } catch (error) {
+    console.error("Login route error:", error);
+    res.status(500).send("Internal Server Error");
+  }
 });
 
 app.post('/report', reportLimiter, async (req, res) => {
@@ -353,8 +335,6 @@ app.post('/report', reportLimiter, async (req, res) => {
 });
 
 
-
-
 app.listen(PORT, () => {
-    console.log(`Server running at http://localhost:${PORT}`);
+  console.log(`Server running at http://localhost:${PORT}`);
 });
