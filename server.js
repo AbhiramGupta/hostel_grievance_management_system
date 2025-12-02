@@ -10,9 +10,9 @@ import ejs from "ejs"
 import nodemailer from "nodemailer"
 import { v4 as uuidv4}  from "uuid"
 import rateLimit from "express-rate-limit";
+import sgMail from '@sendgrid/mail';
 
-
-
+sgMail.setApiKey(process.env.SENDGRID_API_KEY);
 
 dotenv.config();
 
@@ -117,61 +117,6 @@ const reportLimiter = rateLimit({
     legacyHeaders:false
 })
 
-const transporter = nodemailer.createTransport({
-  host: "smtp.gmail.com",
-  port: 587,
-  secure: false, // STARTTLS
-  auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.APP_PASSWORD
-  },
-  tls: {
-    rejectUnauthorized: false
-  },
-  connectionTimeout: 30_000,
-  greetingTimeout: 30_000,
-  socketTimeout: 30_000,
-});
-
-// verify at startup and log full error if any
-transporter.verify()
-  .then(() => console.log('Mail transporter verified (deployed).'))
-  .catch(err => console.error('Mail transporter verify failed (deployed):', err));
-
-// ===== TEMP: test route (call once, remove after debugging) =====
-app.get('/__test-mail', async (req, res) => {
-  try {
-    console.log('Running /__test-mail - env:', {
-      NODE_ENV: process.env.NODE_ENV,
-      EMAIL_USER: !!process.env.EMAIL_USER,
-      BASE_URL: process.env.BASE_URL ? '[set]' : '[not set]'
-    });
-
-    // verify again, log any error
-    await transporter.verify();
-    console.log('transporter.verify succeeded in route');
-
-    const info = await transporter.sendMail({
-      from: process.env.EMAIL_USER,
-      to: process.env.EMAIL_USER,
-      subject: 'Render deploy - test email',
-      text: 'This is a test from deployed app.',
-      html: '<p>This is a test from deployed app.</p>'
-    });
-
-    console.log('sendMail info:', info);
-    return res.send('Test email sent - check logs and inbox.');
-  } catch (err) {
-    // Log full error object and stack to Render logs
-    console.error('Deployed sendMail error (full):', err);
-    if (err && err.response) console.error('SMTP response:', err.response);
-    if (err && err.code) console.error('SMTP code:', err.code);
-    // return detailed message (safe temporarily) so you can see it in browser
-    return res.status(500).send('Mail send failed: ' + (err && err.message ? err.message : String(err)));
-  }
-});
-
-
 app.get('/', (req,res) => {
    res.render("login.ejs", {
         error: null
@@ -241,75 +186,61 @@ app.post('/admin/delete', requireAdmin, async (req, res) => {
 
 
 app.post("/register", registerLimiter, async (req, res) => {
-    try {
-        const email = req.body.email
-        const mobile = req.body.mobileNumber
-        const password = req.body.password
-        const rePassword = req.body.rePassword
+  try {
+    const email = (req.body.email || '').trim();
+    const mobile = (req.body.mobileNumber || '').trim();
+    const password = req.body.password;
+    const rePassword = req.body.rePassword;
 
-        if (!email.endsWith("@gmail.com")) {
-            return res.render("register.ejs", {
-                message: "Email must be a @gmail.com address"
-            });
-        }
-
-        // Mobile number validation
-        if (!/^\d{10}$/.test(mobile)) {
-            return res.render("register.ejs", {
-                message: "Mobile number must be exactly 10 digits"
-            });
-        }
-
-        // Password and confirm password check
-        if (password !== rePassword) {
-            return res.render("register.ejs", {
-                message: "Passwords do not match"
-            });
-        }
-
-
-        // Check if user already exists
-        const result = await db.query("SELECT * FROM users WHERE email = $1", [email]);
-        if (result.rows.length > 0) {
-            return res.render("register.ejs", { message: "Email already exists" });
-        }
-
-        const token = uuidv4()
-
-        // Hash password
-        bcrypt.hash(password, saltRounds, async (err, hash) => {
-            try {
-                if (err) {
-                    console.error("Hashing error:", err);
-                    return res.status(500).send("Error while registering");
-                }
-
-                await db.query(
-                    "INSERT INTO users (email, mobile, password, is_admin, token) VALUES ($1, $2, $3, $4, $5)",
-                    [email, mobile, hash, false, token]
-                );
-
-                const verifyLink = `${process.env.BASE_URL}/verify/${token}`;
-                await transporter.sendMail({
-                    from:"hostelgrevience@gmail.com",
-                    to: email,
-                    subject: "Verify your email",
-                    text: `Click the link to verify your email: ${verifyLink}`
-                })
-
-                res.render("register.ejs", { message: "An email has sent to your inbox please verify it" });
-
-            } catch (innerError) {
-                console.error("Error inside bcrypt.hash:", innerError);
-                res.status(500).send("Internal Server Error");
-            }
-        });
-
-    } catch (error) {
-        console.error("Register route error:", error);
-        res.status(500).send("Internal Server Error");
+    if (!email.endsWith("@gmail.com")) {
+      return res.render("register.ejs", { message: "Email must be a @gmail.com address" });
     }
+    if (!/^\d{10}$/.test(mobile)) {
+      return res.render("register.ejs", { message: "Mobile number must be exactly 10 digits" });
+    }
+    if (password !== rePassword) {
+      return res.render("register.ejs", { message: "Passwords do not match" });
+    }
+
+    const existing = await db.query("SELECT id FROM users WHERE email = $1", [email]);
+    if (existing.rows.length > 0) {
+      return res.render("register.ejs", { message: "Email already exists" });
+    }
+
+    const token = uuidv4();
+    const hash = await bcrypt.hash(password, saltRounds);
+
+    await db.query(
+      "INSERT INTO users (email, mobile, password, is_admin, token) VALUES ($1, $2, $3, $4, $5)",
+      [email, mobile, hash, false, token]
+    );
+
+    const base = process.env.BASE_URL || `${req.protocol}://${req.get('host')}`;
+    const verifyLink = `${base.replace(/\/$/, '')}/verify/${token}`;
+
+    const msg = {
+      to: email,
+      from: process.env.EMAIL_USER,
+      subject: 'Verify your email',
+      text: `Click the link to verify your email: ${verifyLink}`,
+      html: `Please verify your email by clicking this link: <a href="${verifyLink}">${verifyLink}</a>`
+    };
+
+    try {
+      const [response] = await sgMail.send(msg);
+      console.log('SendGrid send status:', response.statusCode);
+      return res.render("register.ejs", { message: "Verification email sent. Please check your inbox." });
+    } catch (sgErr) {
+      console.error('SendGrid error:', sgErr);
+      return res.render("register.ejs", { message: "Registered but failed to send verification email. Contact admin." });
+    }
+
+  } catch (error) {
+    console.error("Register route error:", error);
+    res.status(500).send("Internal Server Error");
+  }
 });
+
 
 app.get('/verify/:token', async (req,res) => {
     const { token } = req.params
