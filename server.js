@@ -120,7 +120,7 @@ const reportLimiter = rateLimit({
 const transporter = nodemailer.createTransport({
   host: "smtp.gmail.com",
   port: 587,
-  secure: false, 
+  secure: false, // STARTTLS
   auth: {
     user: process.env.EMAIL_USER,
     pass: process.env.APP_PASSWORD
@@ -131,6 +131,44 @@ const transporter = nodemailer.createTransport({
   connectionTimeout: 30_000,
   greetingTimeout: 30_000,
   socketTimeout: 30_000,
+});
+
+// verify at startup and log full error if any
+transporter.verify()
+  .then(() => console.log('Mail transporter verified (deployed).'))
+  .catch(err => console.error('Mail transporter verify failed (deployed):', err));
+
+// ===== TEMP: test route (call once, remove after debugging) =====
+app.get('/__test-mail', async (req, res) => {
+  try {
+    console.log('Running /__test-mail - env:', {
+      NODE_ENV: process.env.NODE_ENV,
+      EMAIL_USER: !!process.env.EMAIL_USER,
+      BASE_URL: process.env.BASE_URL ? '[set]' : '[not set]'
+    });
+
+    // verify again, log any error
+    await transporter.verify();
+    console.log('transporter.verify succeeded in route');
+
+    const info = await transporter.sendMail({
+      from: process.env.EMAIL_USER,
+      to: process.env.EMAIL_USER,
+      subject: 'Render deploy - test email',
+      text: 'This is a test from deployed app.',
+      html: '<p>This is a test from deployed app.</p>'
+    });
+
+    console.log('sendMail info:', info);
+    return res.send('Test email sent - check logs and inbox.');
+  } catch (err) {
+    // Log full error object and stack to Render logs
+    console.error('Deployed sendMail error (full):', err);
+    if (err && err.response) console.error('SMTP response:', err.response);
+    if (err && err.code) console.error('SMTP code:', err.code);
+    // return detailed message (safe temporarily) so you can see it in browser
+    return res.status(500).send('Mail send failed: ' + (err && err.message ? err.message : String(err)));
+  }
 });
 
 
