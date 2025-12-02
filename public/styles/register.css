@@ -20,7 +20,7 @@ body {
     background-color: rgba(255, 255, 255, 0.05);
     border: 2px solid rgba(255, 255, 255, 0.6);
     width: 100%;
-    max-width: 450px;
+    max-width: 800px;
     padding: 2rem;
     color: white;
     backdrop-filter: blur(12px);
@@ -115,18 +115,61 @@ body {
     text-decoration: underline;
 }
 
+@media (min-Width:1081px) and (max-Width:2010){
+    .container{
+        max-width: 100px;
+    }
+    .container h1{
+        font-size: 32px;
+    }
+}
+
 @media (max-width: 480px) {
+    body {
+        padding: 10px;
+    }
+
     .container {
         padding: 1.5rem;
-        min-height: 400px;
+        min-height: 600px;
     }
 
     .container h1 {
-        font-size: 26px;
+        font-size: 28px;
     }
 
     .btn input {
         font-size: 14px;
+    }
+    .user label {
+    font-size: 18px;
+    }
+
+    .login-link a{
+        font-size: 18px;
+    }
+}
+
+@media (min-Width: 481px) and (max-Width: 768px){
+    .container{
+        padding: 1.5rem;
+        min-height: 400px;
+    }
+
+    .container h1{
+        font-size: 28px;
+    }
+
+    .user label {
+    font-size: 18px;
+    margin-bottom: 6px;
+    color: rgba(255,255,255,0.9);
+    font-weight: 500;
+    letter-spacing: 0.5px;
+    display: block;
+}
+    .login-link a{
+        font-size: 18px;
     }
 }
 

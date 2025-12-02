@@ -9,12 +9,16 @@ import session from 'express-session';
 import ejs from "ejs"
 import nodemailer from "nodemailer"
 import { v4 as uuidv4}  from "uuid"
+import rateLimit from "express-rate-limit";
+
+
 
 
 dotenv.config();
 
 const app = express();
-const PORT = 3000;
+const PORT = process.env.PORT || 3000;
+
 
 app.use(session({
     secret: process.env.SECRET,
@@ -44,6 +48,8 @@ function requireAdmin(req, res, next) {
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+app.set('views', path.join(__dirname, 'views')); 
+app.set('view engine', 'ejs');
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, 'public')));
 app.use(express.json());
@@ -52,14 +58,61 @@ app.use(express.json());
 const saltRounds = 10
 
 const db = new PG.Client({
-    user: process.env.DB_USER,
-    host: process.env.DB_HOST,
-    database: process.env.DB_DATABASE,
-    password: process.env.DB_PASSWORD,
-    port: process.env.DB_PORT
-})
+  connectionString: process.env.DATABASE_URL,
+  ssl: process.env.NODE_ENV === "production" ? { rejectUnauthorized: false } : false
+});
 
 db.connect()
+  .then(() => console.log("Connected to Neon"))
+  .catch(err => {
+    console.error("Neon connection error:", err);
+  });
+
+
+const globalLimiter = rateLimit({
+    windowMs: 15*60*1000,
+    max:100,
+    standardHeaders:true,
+    legacyHeaders:false,
+})
+
+app.use(globalLimiter)
+
+const LoginLimiter = rateLimit({
+    windowMs:15*60*1000,
+    max:100,
+    handler:(req,res) => {
+        return res.status(429).render("login.ejs",{
+            error:"Too many failed Login attempts, Please try again Later"
+        })
+    },
+    standardHeaders:true,
+    legacyHeaders:false
+})
+
+const registerLimiter = rateLimit({
+     windowMs:15*60*1000,
+    max:100,
+    handler:(req,res) => {
+        return res.status(429).render("register.ejs",{
+            error:"Too many account creation attempts, Please try again Later"
+        })
+    },
+    standardHeaders:true,
+    legacyHeaders:false
+})
+
+const reportLimiter = rateLimit({
+     windowMs:15*60*1000,
+    max:100,
+    handler:(req,res) => {
+        return res.status(429).render("report.ejs",{
+            error:"Sending too many reports, Please try again later"
+        })
+    },
+    standardHeaders:true,
+    legacyHeaders:false
+})
 
 const transporter = nodemailer.createTransport({
     service:"gmail",
@@ -137,7 +190,7 @@ app.post('/admin/delete', requireAdmin, async (req, res) => {
 
 
 
-app.post("/register", async (req, res) => {
+app.post("/register", registerLimiter, async (req, res) => {
     try {
         const email = req.body.email
         const mobile = req.body.mobileNumber
@@ -226,7 +279,7 @@ app.get('/verify/:token', async (req,res) => {
 })
 
 
-app.post("/login", async (req, res) => {
+app.post("/login",LoginLimiter, async (req, res) => {
     try {
         const loginEmail = req.body.email
         const loginPassword = req.body.password
@@ -291,15 +344,33 @@ app.post("/login", async (req, res) => {
     }
 });
 
-app.post('/report', async (req, res) => {
-    const { name, applicationId, mobileNumber, hostel_block, Room_number, Type_of_problem, Report_your_problem } = req.body
-    await db.query(`INSERT INTO problems (name, application_id, mobile_number, hostel_block, room_number, type_of_problem, problem_description) VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-        [name, applicationId, mobileNumber, hostel_block, Room_number, Type_of_problem, Report_your_problem]
-    )
-    res.render("report.ejs", {
-        complaint: "Complaint Submitted Successfully"
-    })
-})
+app.post('/report', reportLimiter, async (req, res) => {
+  const roomRegex = /^(?:[0-9]|1[0-4])(?:0[1-9]|1[0-9]|2[0-4])$/;
+  const { name, applicationId, mobileNumber, hostel_block, Room_number, Type_of_problem, Report_your_problem } = req.body;
+
+  if (!/^\d{5}$/.test(applicationId)) {
+    return res.render('report.ejs', { complaint: null, error: 'Application ID must be exactly 5 digits.' });
+  }
+  if (!/^\d{10}$/.test(mobileNumber)) {
+    return res.render('report.ejs', { complaint: null, error: 'Mobile number must be exactly 10 digits.' });
+  }
+  if (!roomRegex.test(Room_number)) {
+    return res.render('report.ejs', { complaint: null, error: 'Invalid room number. Use: Floor(0–14)+Room(01–24). Example: 008, 113, 1412' });
+  }
+
+  try {
+    await db.query(
+      `INSERT INTO problems (name, application_id, mobile_number, hostel_block, room_number, type_of_problem, problem_description)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+      [name, applicationId, mobileNumber, hostel_block, Room_number, Type_of_problem, Report_your_problem]
+    );
+    return res.render("report.ejs", { complaint: "Complaint Submitted Successfully", error: null });
+  } catch (err) {
+    console.error('Error inserting problem:', err);
+    return res.render("report.ejs", { complaint: null, error: "Server error while submitting complaint" });
+  }
+});
+
 
 
 
